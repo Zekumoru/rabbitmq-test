@@ -1,5 +1,22 @@
 import amqp from 'amqplib';
 
+const timer = async (seconds: number, logging = true) => {
+  await new Promise((resolve) => {
+    let elapsedSeconds = 1;
+    const interval = setInterval(() => {
+      if (logging)
+        console.log(`Elapsed ${elapsedSeconds} of ${seconds} seconds`);
+
+      if (elapsedSeconds >= seconds) {
+        clearInterval(interval);
+        resolve(0);
+      } else {
+        elapsedSeconds++;
+      }
+    }, 1000);
+  });
+};
+
 const list: amqp.ConsumeMessage[] = [];
 let isProcessing = false;
 const processList = async (channel: amqp.Channel) => {
@@ -15,7 +32,7 @@ const processList = async (channel: amqp.Channel) => {
   console.log(`[[consumer]] Processing`);
   console.log(texts);
 
-  await new Promise((resolve) => setTimeout(resolve, 7000));
+  await timer(7);
 
   channel.ack(messages[messages.length - 1], true);
   console.log(`[[consumer]] Done`);
