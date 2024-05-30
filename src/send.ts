@@ -5,11 +5,9 @@ const send = async (queue: string, message: string) => {
     const connection = await amqp.connect('amqp://localhost');
     const channel = await connection.createChannel();
 
-    await channel.assertQueue(queue, {
-      durable: false,
-    });
+    await channel.assertQueue(queue, { durable: true });
 
-    channel.sendToQueue(queue, Buffer.from(message));
+    channel.sendToQueue(queue, Buffer.from(message), { persistent: true });
     console.log(`[[producer]] Sent: ${message}`);
 
     await new Promise((resolve) => setTimeout(resolve, 500));
@@ -19,4 +17,4 @@ const send = async (queue: string, message: string) => {
   }
 };
 
-send('hello', 'Hello world');
+send('task_queue', process.argv.slice(2).join(' ') ?? 'Hello world');
