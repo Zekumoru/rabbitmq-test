@@ -1,7 +1,11 @@
 import amqp from 'amqplib';
 
-const timer = async (seconds: number, logging = true) => {
-  await new Promise((resolve) => {
+const timer = async (
+  seconds: number,
+  secondCallback?: (elapsedSeconds: number) => void,
+  logging = true
+) => {
+  await new Promise((resolve, reject) => {
     let elapsedSeconds = 1;
     const interval = setInterval(() => {
       if (logging)
@@ -13,12 +17,20 @@ const timer = async (seconds: number, logging = true) => {
       } else {
         elapsedSeconds++;
       }
+
+      try {
+        secondCallback?.(elapsedSeconds);
+      } catch (error) {
+        clearInterval(interval);
+        reject(error);
+      }
     }, 1000);
   });
 };
 
 const list: amqp.ConsumeMessage[] = [];
 let isProcessing = false;
+
 const processList = async (channel: amqp.Channel) => {
   if (isProcessing) return;
   if (list.length === 0) return;
@@ -32,10 +44,21 @@ const processList = async (channel: amqp.Channel) => {
   console.log(`[[consumer]] Processing`);
   console.log(texts);
 
-  await timer(7);
+  try {
+    const seconds = 5;
+    const errorProbability = Math.pow(1 - 0.7, 1 / seconds); // 70% for N seconds
+    await timer(seconds, () => {
+      if (Math.random() < errorProbability) {
+        throw new Error('An error occurred! Consumer has restarted.');
+      }
+    });
 
-  channel.ack(messages[messages.length - 1], true);
-  console.log(`[[consumer]] Done`);
+    channel.ack(messages[messages.length - 1], true);
+    console.log(`[[consumer]] Done`);
+  } catch (error) {
+    while (messages.length) list.unshift(messages.pop()!);
+    console.error((error as { message: string }).message);
+  }
 
   isProcessing = false;
   processList(channel); // start processing again
